@@ -34,7 +34,7 @@ def add_news(channel, message_id, timestamp, mention_user, url, desc):
     news_bot = NewsBot(channel)
 
     # Get the onboarding message payload
-    message = news_bot.create_addnews_message(channel, message_id, timestamp,
+    message = news_bot.create_addnews_message(message_id, timestamp,
                                               mention_user, url, desc)
 
     # Post the onboarding message in Slack
@@ -114,7 +114,7 @@ def get_popular_news(command_body):
     news_bot = NewsBot(channel)
 
     # Get the onboarding message payload
-    msgs = news_bot.get_messages_list(channel, search_start, tags)
+    msgs = news_bot.get_messages_list(search_start, tags)
     if len(msgs) == 0:
         return "No messages were found within the time range and the specified tags."
 
@@ -131,8 +131,8 @@ def get_popular_news(command_body):
             "message" in reactions_response:
             msgs_reaction_dict[msg] = reactions_response
 
-    message = news_bot.select_popular_news(channel, msgs_reaction_dict,
-                                           search_start, tags)
+    message, url = news_bot.select_popular_news(msgs_reaction_dict,
+                                                search_start, tags)
 
     return return_message + message
 

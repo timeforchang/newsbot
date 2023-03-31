@@ -59,7 +59,7 @@ class NewsBot:
         return text
 
     # Get the popular news articles since x number of days by tags
-    def get_messages_list(self, channel, search_start, tags):
+    def get_messages_list(self, search_start, tags):
         today = datetime.now()
         day_delta = timedelta(days = search_start)
         start_timestamp = (today - day_delta).timestamp()
@@ -72,9 +72,9 @@ class NewsBot:
                 database=os.environ.get("NEWSBOT_MYSQL_DB"),
             )
             cursor = conn.cursor()
-            cursor.callproc("get_urls_since_by_tag", (channel, start_timestamp, '%%'))
+            cursor.callproc("get_urls_since_by_tag", (self.channel, start_timestamp, '%%'))
             for result in cursor.stored_results():
-                msgs = [(row[0], row[1], row[2], row[3]) for row in result.fetchall()]
+                msgs = [(row[0], row[1], row[2], row[3], row[4]) for row in result.fetchall()]
             cursor.close()
             conn.close()
         elif len(tags) > 0:
@@ -86,16 +86,16 @@ class NewsBot:
             )
             cursor = conn.cursor()
             for tag in tags:
-                cursor.callproc("get_urls_since_by_tag", (channel, start_timestamp, '%' + tag + '%'))
+                cursor.callproc("get_urls_since_by_tag", (self.channel, start_timestamp, '%' + tag + '%'))
                 for result in cursor.stored_results():
-                    msgs.extend([(row[0], row[1], row[2], row[3]) for row in result.fetchall()])
+                    msgs.extend([(row[0], row[1], row[2], row[3], row[4]) for row in result.fetchall()])
             cursor.close()
             conn.close()
 
         return msgs
 
     # Select the most popular news item given a list of messages
-    def select_popular_news(self, channel, msgs, search_start, tags):
+    def select_popular_news(self, msgs, search_start, tags):
         top_interactions = -1
         top_replies = -1
         top_reactions = -1
@@ -133,7 +133,7 @@ class NewsBot:
                 elif replies == top_replies:
                     interactions_tie = True
         response_msg = "The most popular article posted to the <#" + \
-                       channel + \
+                       self.channel + \
                        "> channel in the past " + \
                        str(search_start) + \
                        " days "
@@ -153,13 +153,13 @@ class NewsBot:
             response_msg = "There was a tie in popularity. The most recently posted article will be " + \
                            "returned.\n" + response_msg
 
-        return response_msg
+        return response_msg, top_interactions_url
 
     # Craft and return the payload for the add_news event
-    def create_addnews_message(self, channel, message_id, timestamp,
+    def create_addnews_message(self, message_id, timestamp,
                                mention_user, url, desc):
         return {
             "channel": self.channel,
-            "text": self._add_news(channel, message_id, timestamp,
+            "text": self._add_news(self.channel, message_id, timestamp,
                                    mention_user, url, desc),
         }
