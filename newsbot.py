@@ -1,8 +1,11 @@
 import os
+import dotenv
 from datetime import datetime, timedelta
 from mysql.connector import connect
 
 
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+dotenv.load_dotenv(dotenv_path)
 # Create the NewsBot Class
 class NewsBot:
     # The constructor for the class. It takes the channel name as the a
@@ -130,7 +133,7 @@ class NewsBot:
                     top_interactions_ts = msg[1]
                     top_interactions_poster = msg[2]
                     top_interactions_url = msg[3]
-                elif replies == top_replies:
+                elif replies == top_replies and top_interactions > 0:
                     interactions_tie = True
         response_msg = "The most popular article posted to the <#" + \
                        self.channel + \

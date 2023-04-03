@@ -1,6 +1,7 @@
 import os
 import logging
 import hmac
+import dotenv
 from flask import Flask, request
 from slack import WebClient
 from slackeventsapi import SlackEventAdapter
@@ -10,6 +11,8 @@ from datetime import datetime
 # Initialize a Flask app to host the events adapter
 app = Flask(__name__)
 # Create an events adapter and register it to an endpoint in the slack app for event injestion.
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+dotenv.load_dotenv(dotenv_path)
 slack_events_adapter = SlackEventAdapter(os.environ.get("SLACK_EVENTS_TOKEN"), "/slack/events", app)
 
 # Initialize a Web API client

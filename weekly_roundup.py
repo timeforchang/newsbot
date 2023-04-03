@@ -1,10 +1,13 @@
 import os
 import requests
+import dotenv
 from slack import WebClient
 from mysql.connector import connect
 from newsbot import NewsBot
 
 
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+dotenv.load_dotenv(dotenv_path)
 slack_web_client = WebClient(token=os.environ.get("SLACK_TOKEN"))
 
 
