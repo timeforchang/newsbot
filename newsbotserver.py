@@ -190,7 +190,7 @@ def mention(payload):
                                     url = sub_element.get("url", "")
                                 elif "type" in sub_element and \
                                     sub_element["type"] == "text":
-                                    desc = sub_element.get("text", "")\
+                                    desc = desc + sub_element.get("text", "")\
                                                .lstrip().rstrip()
                             break
 
