@@ -37,7 +37,7 @@ hashtags    optional    comma-separated list of hashtags to search with no space
 ![you can search for popular articles with a slash command](docs/popular_news.png)
 
 ## TODO
-[] Dockerizing the app to initialize the database and run the app automatically
+* [ ] Dockerizing the app to initialize the database and run the app automatically
 
 ### Credit
 Original project by Pascal Issa for Webex integration [found here](https://github.com/pascalissa/URLBot).
