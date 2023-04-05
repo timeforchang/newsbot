@@ -4,25 +4,17 @@ A URL harvesting bot for Slack. Will also send weekly roundups for the links sen
 ![newsbot's weekly roundup](docs/weekly_roundup.png)
 
 ## Usage in Slack
-After NewsBot has been added to a room, it will send a message about general usage. NewsBot can then be mentioned similar to the below examples:
-
-```
-@NewsBot http://www.example.com this is an example url #tag
-```
-Or 
-
-```
-This is a great link, you should see it --> http://www.anotherexample.com/ @NewsBot these links keep coming 
-```
+Mention NewsBot with a URL and description to be ingested by NewsBot e.g. `@NewsBot http://www.example.com this is an example url #tag`. 
 
 NewsBot will then save the following information:
 
 * Message ID
 * URL
-* All the text (before and after the URL)
-* Sender ID and Email
-* Room ID and Room Name
+* All the text (before or after the URL)
+* Sender ID
+* Channel ID
 * Date it was sent
+* Team ID
 
 ![providing a URL to newsbot](docs/add_news.png)
 
