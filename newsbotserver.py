@@ -30,14 +30,14 @@ hashtags    optional    comma-separated list of hashtags to search with no space
 ```
 """
 
-def add_news(channel, message_id, timestamp, mention_user, url, desc):
+def add_news(team, channel, message_id, timestamp, mention_user, url, desc):
     """Craft the NewsBot, create the message, and send the message to the channel
     """
     # Create a new CoinBot
     news_bot = NewsBot(channel)
 
     # Get the onboarding message payload
-    message = news_bot.create_addnews_message(message_id, timestamp,
+    message = news_bot.create_addnews_message(message_id, team, timestamp,
                                               mention_user, url, desc)
 
     # Post the onboarding message in Slack
@@ -46,8 +46,8 @@ def add_news(channel, message_id, timestamp, mention_user, url, desc):
 def post_error_message(channel):
     """Send error message in the channel
     """
-    text = "Your message should have a URL in it, (e.g.`*@NewsBot http://www.example.com this " + \
-           "is an example url`)."
+    text = "Your message should have a URL and a caption (e.g. `@NewsBot http://www.example.com this " + \
+           "is an example url \#example`)."
 
     message = {
         "channel": channel,
@@ -120,7 +120,7 @@ def get_popular_news(command_body):
     msgs = news_bot.get_messages_list(search_start, tags)
     if len(msgs) == 0:
         return "No messages were found within the time range and the specified tags."
-
+	
     msgs_reaction_dict = {}
     for msg in msgs:
         reactions_response = slack_web_client.reactions_get(channel=channel,
@@ -139,6 +139,15 @@ def get_popular_news(command_body):
 
     return return_message + message
 
+def newsbot_delete_channel(channel_id):
+    # Create a new NewsBot
+    news_bot = NewsBot(channel_id)
+
+    news_bot.delete_channel()
+
+    print(" * Newsbot deleted news for channel " + channel_id)
+    return
+
 # When a 'message' event is detected by the events adapter, forward that payload
 # to this function.
 @slack_events_adapter.on("app_mention")
@@ -153,6 +162,7 @@ def mention(payload):
     url = ""
     desc = ""
     channel = ""
+    team = ""
 
     event = payload.get("event", {})
 
@@ -161,6 +171,7 @@ def mention(payload):
         timestamp = event.get("ts", "")
         mention_user = event.get("user", "")
         channel = event.get("channel", "")
+        team = event.get("team", "")
         if "blocks" in event and len(event["blocks"]) > 0:
             for block in event["blocks"]:
                 if "type" in block and \
@@ -174,7 +185,8 @@ def mention(payload):
                             len(element["elements"]) > 0:
                             for sub_element in element["elements"]:
                                 if "type" in sub_element and \
-                                    sub_element["type"] == "link":
+                                    sub_element["type"] == "link" and \
+                                    len(sub_element.get("url", "")) > len(url):
                                     url = sub_element.get("url", "")
                                 elif "type" in sub_element and \
                                     sub_element["type"] == "text":
@@ -187,12 +199,25 @@ def mention(payload):
         mention_user != "" and \
         url != "" and \
         desc != "" and \
-        channel != "":
+        channel != "" and \
+        team != "":
         # Execute the add_news function and send the results of
         # attempt to add news to the channel
-        return add_news(channel, msg_id, timestamp, mention_user, url, desc)
+        return add_news(team, channel, msg_id, timestamp, mention_user, url, desc)
     else:
         return post_error_message(channel)
+
+@slack_events_adapter.on("channel_deleted")
+def channel_deleted(payload):
+    channel = ""
+
+    event = payload.get("event", {})
+    if event:
+        channel = event.get("channel", "")
+
+    if channel != "":
+        newsbot_delete_channel(channel)
+    return
 
 @app.route('/slack/slash_commands/popular_news', methods=['POST'])
 def command_popular_news():

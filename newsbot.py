@@ -32,7 +32,7 @@ class NewsBot:
             return False
 
     # Attempt to add a news URL item if it has yet to be added to
-    def _add_news(self, channel, message_id, timestamp, mention_user,
+    def _add_news(self, team, channel, message_id, timestamp, mention_user,
                   url, desc):
         urlExists = self._check_url_exists(url, channel)
         if urlExists:
@@ -51,7 +51,7 @@ class NewsBot:
                 database=os.environ.get("NEWSBOT_MYSQL_DB"),
             )
             cursor = conn.cursor()
-            cursor.callproc("add_news", (message_id, channel, timestamp,
+            cursor.callproc("add_news", (message_id, team, channel, timestamp,
                                          mention_user, url, desc))
             conn.commit()
             text = url + " has been added to the <#" + channel + \
@@ -159,10 +159,25 @@ class NewsBot:
         return response_msg, top_interactions_url
 
     # Craft and return the payload for the add_news event
-    def create_addnews_message(self, message_id, timestamp,
+    def create_addnews_message(self, message_id, team, timestamp,
                                mention_user, url, desc):
         return {
             "channel": self.channel,
-            "text": self._add_news(self.channel, message_id, timestamp,
+            "text": self._add_news(team, self.channel, message_id, timestamp,
                                    mention_user, url, desc),
         }
+
+    def delete_newsbot(self):
+        conn = connect(
+            user=os.environ.get("NEWSBOT_MYSQL_USER"),
+            password=os.environ.get("NEWSBOT_MYSQL_PASSWORD"),
+            host=os.environ.get("NEWSBOT_MYSQL_HOST"),
+            database=os.environ.get("NEWSBOT_MYSQL_DB"),
+        )
+        cursor = conn.cursor()
+        cursor.callproc("remove_channel_and_urls", (self.channel,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return
+
