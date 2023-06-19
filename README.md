@@ -38,6 +38,7 @@ hashtags    optional    comma-separated list of hashtags to search with no space
 
 ## TODO
 * [ ] Dockerizing the app to initialize the database and run the app automatically
+* [ ] Potentially using sentiment analysis on article titles for smarter filtering of duplicate news items
 
 ### Credit
 Original project by Pascal Issa for Webex integration [found here](https://github.com/pascalissa/URLBot).
