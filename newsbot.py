@@ -186,7 +186,7 @@ class NewsBot:
         return
 
     @staticmethod
-    def get_oauth_token(self, team_id):
+    def get_oauth_token(team_id):
         slack_bot_token = ""
         conn = connect(
             user=os.environ.get("NEWSBOT_MYSQL_USER"),

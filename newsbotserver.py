@@ -3,7 +3,7 @@ import logging
 import hmac
 import dotenv
 from requests import post
-from flask import Flask, request
+from flask import Flask, request, render_template
 from slack import WebClient
 from slackeventsapi import SlackEventAdapter
 from newsbot import NewsBot
@@ -282,6 +282,10 @@ def command_popular_news():
         return(response_message)
     else:
         return
+
+@app.route('/install', methods=['GET'])
+def install_app():
+    return render_template('install.html')
 
 @app.route('/oauth', methods=['GET'])
 def oauth_flow():
