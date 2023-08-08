@@ -167,6 +167,42 @@ class NewsBot:
                                    mention_user, url, desc),
         }
 
+    @staticmethod
+    def register_oauth_token(response_json):
+        team_id = response_json["team"]["id"]
+        token = response_json["access_token"]
+
+        conn = connect(
+            user=os.environ.get("NEWSBOT_MYSQL_USER"),
+            password=os.environ.get("NEWSBOT_MYSQL_PASSWORD"),
+            host=os.environ.get("NEWSBOT_MYSQL_HOST"),
+            database=os.environ.get("NEWSBOT_MYSQL_DB"),
+        )
+        cursor = conn.cursor()
+        cursor.callproc("add_token", (team_id, token))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return
+
+    @staticmethod
+    def get_oauth_token(self, team_id):
+        slack_bot_token = ""
+        conn = connect(
+            user=os.environ.get("NEWSBOT_MYSQL_USER"),
+            password=os.environ.get("NEWSBOT_MYSQL_PASSWORD"),
+            host=os.environ.get("NEWSBOT_MYSQL_HOST"),
+            database=os.environ.get("NEWSBOT_MYSQL_DB"),
+        )
+        cursor = conn.cursor()
+        cursor.callproc("get_token", (team_id,))
+        for result in cursor.stored_results():
+            slack_bot_token = result.fetchone()
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return slack_bot_token[0]
+
     def delete_newsbot(self):
         conn = connect(
             user=os.environ.get("NEWSBOT_MYSQL_USER"),
@@ -181,3 +217,17 @@ class NewsBot:
         conn.close()
         return
 
+    @staticmethod
+    def uninstall_app(team_id):
+        conn = connect(
+            user=os.environ.get("NEWSBOT_MYSQL_USER"),
+            password=os.environ.get("NEWSBOT_MYSQL_PASSWORD"),
+            host=os.environ.get("NEWSBOT_MYSQL_HOST"),
+            database=os.environ.get("NEWSBOT_MYSQL_DB"),
+        )
+        cursor = conn.cursor()
+        cursor.callproc("remove_token", (team_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return slack_bot_token

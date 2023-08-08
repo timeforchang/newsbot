@@ -9,7 +9,6 @@ from newsbot import NewsBot
 
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 dotenv.load_dotenv(dotenv_path)
-slack_web_client = WebClient(token=os.environ.get("SLACK_TOKEN"))
 
 unauthed_error_types = [
     "as_user_not_supported",
@@ -56,7 +55,7 @@ def get_summary(url):
         return title, summary
     return None, None
 
-def craft_message(channel, msgs):
+def craft_message(slack_web_client, channel, msgs):
     msgs_reaction_dict = {}
     for msg in msgs:
         reactions_response = slack_web_client.reactions_get(channel=channel,
@@ -147,7 +146,7 @@ def craft_message(channel, msgs):
     return message
 
 def send_weekly_roundup():
-    channels = []
+    teams_and_channels = []
     conn = connect(
         user=os.environ.get("NEWSBOT_MYSQL_USER"),
         password=os.environ.get("NEWSBOT_MYSQL_PASSWORD"),
@@ -157,12 +156,14 @@ def send_weekly_roundup():
     cursor = conn.cursor()
     cursor.callproc("get_channels", )
     for result in cursor.stored_results():
-        channels = [row[0] for row in result.fetchall()]
-    print(channels)
+        teams_and_channels = [(row[0], row[1]) for row in result.fetchall()]
+    print(teams_and_channels)
     cursor.close()
     conn.close()
 
-    for channel in channels:
+    for team_and_channel in teams_and_channels:
+        team = team_and_channel[0]
+        channel = team_and_channel[1]
         news_bot = NewsBot(channel)
         msgs = news_bot.get_messages_list(7, [])
 
@@ -170,8 +171,15 @@ def send_weekly_roundup():
             continue
         else:
             try:
-                to_post = craft_message(channel, msgs)
-                slack_web_client.chat_postMessage(**to_post)
+                slack_bot_token = NewsBot.get_oauth_token(team)
+                if slack_bot_token != "":
+                    # Initialize a Web API client
+                    slack_web_client = WebClient(token=slack_bot_token)
+                    to_post = craft_message(slack_web_client, channel, msgs)
+                    slack_web_client.chat_postMessage(**to_post)
+                else:
+                    print(" * Following team did not install app: " + team)
+                    continue
             except SlackApiError as e:
                 response = e.response
                 if response.get("error", "") in unauthed_error_types:
