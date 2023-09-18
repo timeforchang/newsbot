@@ -58,16 +58,20 @@ def get_summary(url):
 def craft_message(slack_web_client, channel, msgs):
     msgs_reaction_dict = {}
     for msg in msgs:
-        reactions_response = slack_web_client.reactions_get(channel=channel,
-                                                            timestamp=msg[1],
-                                                            full=True)
-        reactions_response = reactions_response.data
-        if "ok" in reactions_response and \
-            reactions_response["ok"] == True and \
-            "type" in reactions_response and \
-            reactions_response["type"] == "message" and \
-            "message" in reactions_response:
-            msgs_reaction_dict[msg] = reactions_response
+        try:
+            reactions_response = slack_web_client.reactions_get(channel=channel,
+                                                                timestamp=msg[1],
+                                                                full=True)
+            reactions_response = reactions_response.data
+            if "ok" in reactions_response and \
+                reactions_response["ok"] == True and \
+                "type" in reactions_response and \
+                reactions_response["type"] == "message" and \
+                "message" in reactions_response:
+                msgs_reaction_dict[msg] = reactions_response
+        except:
+            print("* Could not find message " + str(msg) + "in channel " + str(channel))
+            continue
 
     news_bot = NewsBot(channel)
     not_needed, url = news_bot.select_popular_news(msgs_reaction_dict, 7, [])
@@ -97,7 +101,8 @@ def craft_message(slack_web_client, channel, msgs):
             "type": "section",
             "text": {
             "type": "mrkdwn",
-                "text": summary + "\n\n" + "Read more <" + url + "|here>"
+                "text": summary + "\n\n" + "Read more <" + url + "|here>",
+                "unfurl_links": false
             }
         }]
     elif title and not summary:
@@ -105,7 +110,8 @@ def craft_message(slack_web_client, channel, msgs):
             "type": "section",
             "text": {
             "type": "mrkdwn",
-                "text": "*" + title + "*\nRead more <" + url + "|here>"
+                "text": "*" + title + "*\nRead more <" + url + "|here>",
+                "unfurl_links": false
             }
         }]
     else:
@@ -113,7 +119,8 @@ def craft_message(slack_web_client, channel, msgs):
             "type": "section",
             "text": {
             "type": "mrkdwn",
-                "text": summary + "\n\n" + "Read more <" + url + "|here>"
+                "text": summary + "\n\n" + "Read more <" + url + "|here>",
+                "unfurl_links": false
             }
         }]
 
@@ -133,7 +140,8 @@ def craft_message(slack_web_client, channel, msgs):
             "text": {
             "type": "mrkdwn",
                 "text": "*Some other articles from the past week you may have missed:*\n" + \
-                        "\n".join(other_urls)
+                        "\n".join(other_urls),
+                "unfurl_links": false
             }
         }]
         weeklyroundup.extend(weeklyroundup_otherurls)
