@@ -101,8 +101,7 @@ def craft_message(slack_web_client, channel, msgs):
             "type": "section",
             "text": {
             "type": "mrkdwn",
-                "text": summary + "\n\n" + "Read more <" + url + "|here>",
-                "unfurl_links": false
+                "text": summary + "\n\n" + "Read more <" + url + "|here>"
             }
         }]
     elif title and not summary:
@@ -110,8 +109,7 @@ def craft_message(slack_web_client, channel, msgs):
             "type": "section",
             "text": {
             "type": "mrkdwn",
-                "text": "*" + title + "*\nRead more <" + url + "|here>",
-                "unfurl_links": false
+                "text": "*" + title + "*\nRead more <" + url + "|here>"
             }
         }]
     else:
@@ -119,8 +117,7 @@ def craft_message(slack_web_client, channel, msgs):
             "type": "section",
             "text": {
             "type": "mrkdwn",
-                "text": summary + "\n\n" + "Read more <" + url + "|here>",
-                "unfurl_links": false
+                "text": summary + "\n\n" + "Read more <" + url + "|here>"
             }
         }]
 
@@ -140,8 +137,7 @@ def craft_message(slack_web_client, channel, msgs):
             "text": {
             "type": "mrkdwn",
                 "text": "*Some other articles from the past week you may have missed:*\n" + \
-                        "\n".join(other_urls),
-                "unfurl_links": false
+                        "\n".join(other_urls)
             }
         }]
         weeklyroundup.extend(weeklyroundup_otherurls)
@@ -150,7 +146,6 @@ def craft_message(slack_web_client, channel, msgs):
         "channel": channel,
         "blocks": weeklyroundup
     }
-
     return message
 
 def send_weekly_roundup():
@@ -184,7 +179,7 @@ def send_weekly_roundup():
                     # Initialize a Web API client
                     slack_web_client = WebClient(token=slack_bot_token)
                     to_post = craft_message(slack_web_client, channel, msgs)
-                    slack_web_client.chat_postMessage(**to_post)
+                    slack_web_client.chat_postMessage(**to_post, unfurl_links=False, unfurl_media=False)
                 else:
                     print(" * Following team did not install app: " + team)
                     continue
