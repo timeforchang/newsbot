@@ -2,7 +2,8 @@ import os
 import logging
 import hmac
 import dotenv
-from flask import Flask, request
+from requests import post
+from flask import Flask, request, render_template
 from slack import WebClient
 from slackeventsapi import SlackEventAdapter
 from newsbot import NewsBot
@@ -14,9 +15,6 @@ app = Flask(__name__)
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 dotenv.load_dotenv(dotenv_path)
 slack_events_adapter = SlackEventAdapter(os.environ.get("SLACK_EVENTS_TOKEN"), "/slack/events", app)
-
-# Initialize a Web API client
-slack_web_client = WebClient(token=os.environ.get("SLACK_TOKEN"))
 
 command_helptext = """
 ```
@@ -36,14 +34,20 @@ def add_news(team, channel, message_id, timestamp, mention_user, url, desc):
     # Create a new CoinBot
     news_bot = NewsBot(channel)
 
-    # Get the onboarding message payload
+    # Get the add news message payload
     message = news_bot.create_addnews_message(message_id, team, timestamp,
                                               mention_user, url, desc)
 
-    # Post the onboarding message in Slack
-    slack_web_client.chat_postMessage(**message)
+    if message != "":
+        slack_bot_token = NewsBot.get_oauth_token(team)
+        if slack_bot_token != "":
+            # Initialize a Web API client
+            slack_web_client = WebClient(token=slack_bot_token)
 
-def post_error_message(channel):
+            # Post a scooped message in Slack if its a duplicate
+            slack_web_client.chat_postMessage(**message)
+
+def post_error_message(team, channel):
     """Send error message in the channel
     """
     text = "Your message should have a URL and a caption (e.g. `@NewsBot http://www.example.com this " + \
@@ -54,12 +58,19 @@ def post_error_message(channel):
         "text": text
     }
 
-    slack_web_client.chat_postMessage(**message)
+    slack_bot_token = NewsBot.get_oauth_token(team)
+    if slack_bot_token != "":
+        # Initialize a Web API client
+        slack_web_client = WebClient(token=slack_bot_token)
+
+        # Post the onboarding message in Slack
+        slack_web_client.chat_postMessage(**message)
 
 def get_popular_news(command_body):
     search_start = 7
     text = ""
     channel = ""
+    team = ""
     args = []
     tags = []
     tags_after_space = False
@@ -72,7 +83,9 @@ def get_popular_news(command_body):
             channel = command_body.get("channel_id", "")
         if "text" in command_body:
             text = command_body.get("text", "")
-    if not channel or channel == "":
+        if "team_id" in command_body:
+            team = command_body.get("team_id", "")
+    if not channel or channel == "" or not team or team == "":
         return "Something went wrong with the Slack API. Please try again later."
 
     if text != "":
@@ -116,28 +129,35 @@ def get_popular_news(command_body):
     # Create a new NewsBot
     news_bot = NewsBot(channel)
 
-    # Get the onboarding message payload
-    msgs = news_bot.get_messages_list(search_start, tags)
-    if len(msgs) == 0:
-        return "No messages were found within the time range and the specified tags."
-	
-    msgs_reaction_dict = {}
-    for msg in msgs:
-        reactions_response = slack_web_client.reactions_get(channel=channel,
-                                                            timestamp=msg[1],
-                                                            full=True)
-        reactions_response = reactions_response.data
-        if "ok" in reactions_response and \
-            reactions_response["ok"] == True and \
-            "type" in reactions_response and \
-            reactions_response["type"] == "message" and \
-            "message" in reactions_response:
-            msgs_reaction_dict[msg] = reactions_response
+    slack_bot_token = NewsBot.get_oauth_token(team)
+    if slack_bot_token != "":
+        # Initialize a Web API client
+        slack_web_client = WebClient(token=slack_bot_token)
 
-    message, url = news_bot.select_popular_news(msgs_reaction_dict,
-                                                search_start, tags)
+        # Get the onboarding message payload
+        msgs = news_bot.get_messages_list(search_start, tags)
+        if len(msgs) == 0:
+            return "No messages were found within the time range and the specified tags."
 
-    return return_message + message
+        msgs_reaction_dict = {}
+        for msg in msgs:
+            reactions_response = slack_web_client.reactions_get(channel=channel,
+                                                                timestamp=msg[1],
+                                                                full=True)
+            reactions_response = reactions_response.data
+            if "ok" in reactions_response and \
+                reactions_response["ok"] == True and \
+                "type" in reactions_response and \
+                reactions_response["type"] == "message" and \
+                "message" in reactions_response:
+                msgs_reaction_dict[msg] = reactions_response
+
+        message, url = news_bot.select_popular_news(msgs_reaction_dict,
+                                                    search_start, tags)
+
+        return return_message + message
+    else:
+        return
 
 def newsbot_delete_channel(channel_id):
     # Create a new NewsBot
@@ -146,6 +166,12 @@ def newsbot_delete_channel(channel_id):
     news_bot.delete_channel()
 
     print(" * Newsbot deleted news for channel " + channel_id)
+    return
+
+def newsbot_uninstall_app(team_id):
+    NewsBot.uninstall_app(team_id)
+
+    print(" * Newsbot uninstalled for team " + team_id)
     return
 
 # When a 'message' event is detected by the events adapter, forward that payload
@@ -204,8 +230,8 @@ def mention(payload):
         # Execute the add_news function and send the results of
         # attempt to add news to the channel
         return add_news(team, channel, msg_id, timestamp, mention_user, url, desc)
-    else:
-        return post_error_message(channel)
+    elif team:
+        return post_error_message(team, channel)
 
 @slack_events_adapter.on("channel_deleted")
 def channel_deleted(payload):
@@ -217,6 +243,18 @@ def channel_deleted(payload):
 
     if channel != "":
         newsbot_delete_channel(channel)
+    return
+
+@slack_events_adapter.on("tokens_revoked")
+def app_uninstalled(payload):
+    team = ""
+
+    event = payload.get("event", {})
+    if event:
+        team = event.get("team_id", "")
+
+    if team != "":
+        newsbot_uninstall_app(team)
     return
 
 @app.route('/slack/slash_commands/popular_news', methods=['POST'])
@@ -245,6 +283,33 @@ def command_popular_news():
         return(response_message)
     else:
         return
+
+@app.route('/install', methods=['GET'])
+def install_app():
+    return render_template('install.html')
+
+@app.route('/oauth', methods=['GET'])
+def oauth_flow():
+    args = request.args
+    if "code" in args:
+        code = args.get("code", "")
+        client_id = os.environ.get("SLACK_CLIENT_ID")
+        client_secret =  os.environ.get("SLACK_CLIENT_SECRET")
+        url = "https://slack.com/api/oauth.v2.access"
+        post_args = {
+            "code": code,
+            "client_id": client_id,
+            "client_secret": client_secret
+        }
+
+        response = post(url, data=post_args)
+        if response.json()["ok"]:
+            NewsBot.register_oauth_token(response.json())
+            return "Successfully installed app to your Slack team!", 200
+        else:
+            return "Something went wrong with OAuth", 500
+    else:
+        return "Bad Request", 400
 
 if __name__ == "__main__":
     # Create the logging object
