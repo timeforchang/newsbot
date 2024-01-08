@@ -5,11 +5,12 @@ from slack import WebClient
 from slack.errors import SlackApiError
 from mysql.connector import connect
 from newsbot import NewsBot
+from newspaper import Article
+from openai import OpenAI
 
 
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 dotenv.load_dotenv(dotenv_path)
-slack_web_client = WebClient(token=os.environ.get("SLACK_TOKEN"))
 
 unauthed_error_types = [
     "as_user_not_supported",
@@ -37,38 +38,53 @@ unauthed_error_types = [
 ]
 
 def get_summary(url):
-    smmry_api = "https://api.smmry.com/"
-    smmry_params = {
-        'SM_API_KEY': os.environ.get("SMMRY_API_KEY"),
-        'SM_LENGTH': 5,
-        'SM_URL': url
-    }
+    article = Article(url, language="en")
+    try:
+        article.download()
+        article.parse()
+        article_text = article.text
+        article_title = article.title
+    except:
+        return None, None
 
-    smmry_response = requests.get(smmry_api, params=smmry_params)
-    if smmry_response.status_code == 200:
-        title = None
-        summary = None
-        smmry_json = smmry_response.json()
-        if "sm_api_content" in smmry_json:
-            summary = smmry_json.get("sm_api_content", "")
-        if "sm_api_title" in smmry_json:
-            title= smmry_json.get("sm_api_title", "")
+    title = article_title
+
+    try:
+        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"), organization=os.environ.get("OPENAI_ORG_ID"))
+        completion = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are an assistant, skilled in providing short summaries of news articles."},
+                {"role": "user", "content": "Summarize: \n" + article_text}
+            ]
+        )
+        print(completion)
+        summary = completion.choices[0].message.content
         return title, summary
-    return None, None
+    except:
+        article.nlp()
+        summary = article.summary
+        return title, summary
 
-def craft_message(channel, msgs):
+def craft_message(slack_web_client, channel, msgs):
     msgs_reaction_dict = {}
+
+
     for msg in msgs:
-        reactions_response = slack_web_client.reactions_get(channel=channel,
-                                                            timestamp=msg[1],
-                                                            full=True)
-        reactions_response = reactions_response.data
-        if "ok" in reactions_response and \
-            reactions_response["ok"] == True and \
-            "type" in reactions_response and \
-            reactions_response["type"] == "message" and \
-            "message" in reactions_response:
-            msgs_reaction_dict[msg] = reactions_response
+        try:
+            reactions_response = slack_web_client.reactions_get(channel=channel,
+                                                                timestamp=msg[1],
+                                                                full=True)
+            reactions_response = reactions_response.data
+            if "ok" in reactions_response and \
+                reactions_response["ok"] == True and \
+                "type" in reactions_response and \
+                reactions_response["type"] == "message" and \
+                "message" in reactions_response:
+                msgs_reaction_dict[msg] = reactions_response
+        except:
+            print("* Could not find message " + str(msg) + "in channel " + str(channel))
+            continue
 
     news_bot = NewsBot(channel)
     not_needed, url = news_bot.select_popular_news(msgs_reaction_dict, 7, [])
@@ -143,11 +159,10 @@ def craft_message(channel, msgs):
         "channel": channel,
         "blocks": weeklyroundup
     }
-
     return message
 
 def send_weekly_roundup():
-    channels = []
+    teams_and_channels = []
     conn = connect(
         user=os.environ.get("NEWSBOT_MYSQL_USER"),
         password=os.environ.get("NEWSBOT_MYSQL_PASSWORD"),
@@ -157,21 +172,31 @@ def send_weekly_roundup():
     cursor = conn.cursor()
     cursor.callproc("get_channels", )
     for result in cursor.stored_results():
-        channels = [row[0] for row in result.fetchall()]
-    print(channels)
+        teams_and_channels = [(row[0], row[1]) for row in result.fetchall()]
+    print(teams_and_channels)
     cursor.close()
     conn.close()
 
-    for channel in channels:
+    for team_and_channel in teams_and_channels:
+        team = team_and_channel[0]
+        channel = team_and_channel[1]
         news_bot = NewsBot(channel)
         msgs = news_bot.get_messages_list(7, [])
+        print(msgs)
 
         if len(msgs) == 0:
             continue
         else:
             try:
-                to_post = craft_message(channel, msgs)
-                slack_web_client.chat_postMessage(**to_post)
+                slack_bot_token = NewsBot.get_oauth_token(team)
+                if slack_bot_token != "":
+                    # Initialize a Web API client
+                    slack_web_client = WebClient(token=slack_bot_token)
+                    to_post = craft_message(slack_web_client, channel, msgs)
+                    slack_web_client.chat_postMessage(**to_post, unfurl_links=False, unfurl_media=False)
+                else:
+                    print(" * Following team did not install app: " + team)
+                    continue
             except SlackApiError as e:
                 response = e.response
                 if response.get("error", "") in unauthed_error_types:
