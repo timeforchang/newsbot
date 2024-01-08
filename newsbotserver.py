@@ -38,14 +38,16 @@ def add_news(team, channel, message_id, timestamp, mention_user, url, desc):
     message = news_bot.create_addnews_message(message_id, team, timestamp,
                                               mention_user, url, desc)
 
-    if message != "":
+    if message['text']:
         slack_bot_token = NewsBot.get_oauth_token(team)
-        if slack_bot_token != "":
+        if slack_bot_token:
             # Initialize a Web API client
             slack_web_client = WebClient(token=slack_bot_token)
 
             # Post a scooped message in Slack if its a duplicate
             slack_web_client.chat_postMessage(**message)
+    else:
+        return
 
 def post_error_message(team, channel):
     """Send error message in the channel

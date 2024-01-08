@@ -44,7 +44,6 @@ class NewsBot:
                    datetime.fromtimestamp(float(urlExists[0]))\
                        .strftime("%Y-%m-%d %H:%M:%S") + \
                    "!"
-        '''
         else:
 
             conn = connect(
@@ -57,12 +56,8 @@ class NewsBot:
             cursor.callproc("add_news", (message_id, team, channel, timestamp,
                                          mention_user, url, desc))
             conn.commit()
-            text = url + " has been added to the <#" + channel + \
-                   "> channel list."
             cursor.close()
             conn.close()
-        '''
-
         return text
 
     # Get the popular news articles since x number of days by tags

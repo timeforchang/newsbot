@@ -58,7 +58,6 @@ def get_summary(url):
                 {"role": "user", "content": "Summarize: \n" + article_text}
             ]
         )
-        print(completion)
         summary = completion.choices[0].message.content
         return title, summary
     except:
