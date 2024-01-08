@@ -34,17 +34,18 @@ def add_news(team, channel, message_id, timestamp, mention_user, url, desc):
     # Create a new CoinBot
     news_bot = NewsBot(channel)
 
-    # Get the onboarding message payload
+    # Get the add news message payload
     message = news_bot.create_addnews_message(message_id, team, timestamp,
                                               mention_user, url, desc)
 
-    # slack_bot_token = NewsBot.get_oauth_token(team)
-    # if slack_bot_token != "":
-        # Initialize a Web API client
-        # slack_web_client = WebClient(token=slack_bot_token)
+    if message != "":
+        slack_bot_token = NewsBot.get_oauth_token(team)
+        if slack_bot_token != "":
+            # Initialize a Web API client
+            slack_web_client = WebClient(token=slack_bot_token)
 
-        # Post the onboarding message in Slack
-        # slack_web_client.chat_postMessage(**message)
+            # Post a scooped message in Slack if its a duplicate
+            slack_web_client.chat_postMessage(**message)
 
 def post_error_message(team, channel):
     """Send error message in the channel

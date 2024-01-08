@@ -5,6 +5,8 @@ from slack import WebClient
 from slack.errors import SlackApiError
 from mysql.connector import connect
 from newsbot import NewsBot
+from newspaper import Article
+from openai import OpenAI
 
 
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
@@ -36,27 +38,38 @@ unauthed_error_types = [
 ]
 
 def get_summary(url):
-    smmry_api = "https://api.smmry.com/"
-    smmry_params = {
-        'SM_API_KEY': os.environ.get("SMMRY_API_KEY"),
-        'SM_LENGTH': 5,
-        'SM_URL': url
-    }
+    article = Article(url, language="en")
+    try:
+        article.download()
+        article.parse()
+        article_text = article.text
+        article_title = article.title
+    except:
+        return None, None
 
-    smmry_response = requests.get(smmry_api, params=smmry_params)
-    if smmry_response.status_code == 200:
-        title = None
-        summary = None
-        smmry_json = smmry_response.json()
-        if "sm_api_content" in smmry_json:
-            summary = smmry_json.get("sm_api_content", "")
-        if "sm_api_title" in smmry_json:
-            title= smmry_json.get("sm_api_title", "")
+    title = article_title
+
+    try:
+        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"), organization=os.environ.get("OPENAI_ORG_ID"))
+        completion = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are an assistant, skilled in providing short summaries of news articles."},
+                {"role": "user", "content": "Summarize: \n" + article_text}
+            ]
+        )
+        print(completion)
+        summary = completion.choices[0].message.content
         return title, summary
-    return None, None
+    except:
+        article.nlp()
+        summary = article.summary
+        return title, summary
 
 def craft_message(slack_web_client, channel, msgs):
     msgs_reaction_dict = {}
+
+
     for msg in msgs:
         try:
             reactions_response = slack_web_client.reactions_get(channel=channel,
@@ -169,6 +182,7 @@ def send_weekly_roundup():
         channel = team_and_channel[1]
         news_bot = NewsBot(channel)
         msgs = news_bot.get_messages_list(7, [])
+        print(msgs)
 
         if len(msgs) == 0:
             continue
