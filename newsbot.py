@@ -34,6 +34,7 @@ class NewsBot:
     # Attempt to add a news URL item if it has yet to be added to
     def _add_news(self, team, channel, message_id, timestamp, mention_user,
                   url, desc):
+        text = ""
         urlExists = self._check_url_exists(url, channel)
         if urlExists:
             text = "This URL is a duplicate. You have been :spoon: " + \
@@ -43,7 +44,9 @@ class NewsBot:
                    datetime.fromtimestamp(float(urlExists[0]))\
                        .strftime("%Y-%m-%d %H:%M:%S") + \
                    "!"
+        '''
         else:
+
             conn = connect(
                 user=os.environ.get("NEWSBOT_MYSQL_USER"),
                 password=os.environ.get("NEWSBOT_MYSQL_PASSWORD"),
@@ -58,6 +61,7 @@ class NewsBot:
                    "> channel list."
             cursor.close()
             conn.close()
+        '''
 
         return text
 
