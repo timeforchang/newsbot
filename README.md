@@ -1,5 +1,5 @@
 # newsbot
-A URL harvesting bot for Slack. Will also send weekly roundups for the links sent in the channel with a summary of the most popular article of the week (based on number of interactions it gets in the channel) using the SMMRY API.
+A URL harvesting bot for Slack. Will also send weekly roundups for the links sent in the channel with a summary of the most popular article of the week (based on number of interactions it gets in the channel) using the ChatGPT.
 
 ![newsbot's weekly roundup](docs/weekly_roundup.png)
 
